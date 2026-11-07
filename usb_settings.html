@@ -15,6 +15,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #export-log{margin-top:10px;font-size:14px;color:#7fdbff;font-family:monospace}
 .floor-strip{background:#0a1428;border:1px solid #d4af37;border-radius:6px;text-align:center;font-size:11px;letter-spacing:1px;padding:7px 12px;color:#d4af37;text-transform:uppercase;margin-bottom:20px}
 .floor-strip strong{color:#fff0a6}
+.storage-box label{display:block;margin:10px 0;cursor:pointer}
+.storage-box input{margin-right:8px}
+.storage-note{font-size:13px;color:#7fdbff;margin:6px 0 0 26px}
+.copy-btn{background:#3a7a9c;color:#fff;border:none;padding:10px 15px;font-weight:bold;border-radius:4px;cursor:pointer;margin-left:8px}
 .nav-link{display:inline-block;margin-top:20px;padding:10px 15px;background:#7fdbff;color:#050914;text-decoration:none;border-radius:5px;font-weight:bold}
 footer{text-align:center;color:#888;font-size:13px;margin-top:30px;border-top:1px solid #222;padding-top:20px}
 </style>
@@ -42,7 +46,22 @@ footer{text-align:center;color:#888;font-size:13px;margin-top:30px;border-top:1p
   </div>
 
   <button id="exportBtn" disabled onclick="exportConfig()">Package for USB Transfer</button>
+  <button id="copyBtn" disabled onclick="copyConfig()">Copy Config</button>
   <div id="export-log"></div>
+</div>
+
+<div class="setting-box storage-box">
+  <h2>3. Storage Location</h2>
+  <p>Choose where the portal keeps its files. Your choice is saved on this device.</p>
+  <label><input type="radio" name="storage" value="local"> Local &mdash; on this device (browser storage)</label>
+  <p class="storage-note">Notes, settings and the config stay in this browser.</p>
+  <label><input type="radio" name="storage" value="external"> External &mdash; device shared storage (Downloads)</label>
+  <p class="storage-note">Exports land in the Downloads folder, ready to move.</p>
+  <label><input type="radio" name="storage" value="cloud"> Cloud &mdash; sync online</label>
+  <p class="storage-note">Cloud sync is not wired up in this portal yet &mdash; this saves your choice for now.</p>
+  <label><input type="radio" name="storage" value="usb"> USB &mdash; external drive (OTG)</label>
+  <p class="storage-note">Use &ldquo;Package for USB Transfer&rdquo; above to put the config on the drive.</p>
+  <p id="storage-saved" style="color:#7fdbff;font-size:14px"></p>
 </div>
 
 <a href="../index.html" class="nav-link">&larr; Return to Main Portal Hub</a>
@@ -77,6 +96,42 @@ async function exportConfig() {
   document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
   log.textContent = 'Exported iron_rod_config.json (' + source + ') — Sealed Vaults confirmed closed.';
+}
+
+// Storage location preference (saved on this device).
+var storageRadios = document.querySelectorAll('input[name="storage"]');
+var savedNote = document.getElementById('storage-saved');
+function loadStorage() {
+  var saved = null;
+  try { saved = localStorage.getItem('portal-storage'); } catch (e) { saved = null; }
+  storageRadios.forEach(function (r) { r.checked = (r.value === saved); });
+  if (saved) savedNote.textContent = 'Saved: ' + saved + '.';
+}
+storageRadios.forEach(function (r) {
+  r.addEventListener('change', function () {
+    try { localStorage.setItem('portal-storage', r.value); } catch (e) {}
+    savedNote.textContent = 'Saved: ' + r.value + '.';
+  });
+});
+loadStorage();
+
+// Copy the config to the clipboard (same source as the USB export).
+var copyBtn = document.getElementById('copyBtn');
+ack.addEventListener('change', function () { copyBtn.disabled = !ack.checked; });
+async function copyConfig() {
+  var cfg = FALLBACK_CONFIG;
+  try {
+    var r = await fetch('../iron_rod_config.json', {cache: 'no-store'});
+    if (r.ok) { cfg = await r.json(); }
+  } catch (e) { /* keep fallback */ }
+  var text = JSON.stringify(cfg, null, 2);
+  function done(ok) {
+    copyBtn.textContent = ok ? 'Copied' : 'Copy failed';
+    setTimeout(function () { copyBtn.textContent = 'Copy Config'; }, 2000);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+  } else { done(false); }
 }
 </script>
 
